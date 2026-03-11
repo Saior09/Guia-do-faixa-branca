@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
-import MapaTecnico from "./MapaTecnico";
 
 export default function Dashboard() {
 
@@ -97,9 +96,6 @@ export default function Dashboard() {
         </div>
 
       </div>
-
-      <MapaTecnico />
-
     </>
 
   );
