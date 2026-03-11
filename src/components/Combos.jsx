@@ -45,14 +45,38 @@ export default function Combos() {
   }
 
   useEffect(() => {
+
     carregarCombos();
+
+    const channel = supabase
+      .channel("combos-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "progresso"
+        },
+        () => {
+          carregarCombos();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+
   }, []);
 
   if (comboSelecionado) {
     return (
       <ComboDetalhe
         combo={comboSelecionado}
-        voltar={() => setComboSelecionado(null)}
+        voltar={() => {
+          setComboSelecionado(null);
+          carregarCombos();
+        }}
       />
     );
   }
@@ -109,8 +133,18 @@ export default function Combos() {
 
 function Pizza({ porcentagem }) {
 
-  const azul = porcentagem;
-  const rosa = 100 - porcentagem;
+  const [valorAnimado, setValorAnimado] = useState(0);
+
+  useEffect(() => {
+
+    setTimeout(() => {
+      setValorAnimado(porcentagem);
+    }, 50);
+
+  }, [porcentagem]);
+
+  const azul = valorAnimado;
+  const rosa = 100 - valorAnimado;
 
   return (
     <div
@@ -122,7 +156,8 @@ function Pizza({ porcentagem }) {
           #2196f3 0% ${azul}%,
           #ff5fa2 ${azul}% 100%
         )`,
-        boxShadow: "0 0 4px rgba(0,0,0,0.15)"
+        boxShadow: "0 0 4px rgba(0,0,0,0.15)",
+        transition: "all 0.6s ease"
       }}
     />
   );
@@ -159,7 +194,28 @@ function ComboDetalhe({ combo, voltar }) {
   }
 
   useEffect(() => {
+
     carregarAlunos();
+
+    const channel = supabase
+      .channel("progresso-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "progresso"
+        },
+        () => {
+          carregarAlunos();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+
   }, [combo]);
 
   return (

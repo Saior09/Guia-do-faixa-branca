@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
+import MapaTecnico from "./MapaTecnico";
 
 export default function Dashboard() {
 
@@ -23,17 +24,19 @@ export default function Dashboard() {
       .from("progresso")
       .select("feito");
 
-    const total = progresso.length;
+    const total = progresso?.length || 0;
 
-    const feitos = progresso.filter(p => p.feito).length;
+    const feitos = progresso
+      ? progresso.filter(p => p.feito).length
+      : 0;
 
     const media = total === 0
       ? 0
       : Math.round((feitos / total) * 100);
 
     setStats({
-      alunos: alunos.length,
-      combos: combos.length,
+      alunos: alunos?.length || 0,
+      combos: combos?.length || 0,
       media
     });
 
@@ -45,52 +48,59 @@ export default function Dashboard() {
 
   return (
 
-    <div
-      style={{
-        border: "1px solid #ddd",
-        padding: 16,
-        marginBottom: 20
-      }}
-    >
-
-      <h2>Dashboard</h2>
-
-      <div style={{ marginBottom: 10 }}>
-        👥 Alunos: {stats.alunos}
-      </div>
-
-      <div style={{ marginBottom: 10 }}>
-        🥋 Combos: {stats.combos}
-      </div>
-
-      <div style={{ marginBottom: 6 }}>
-        📊 Progresso médio da turma
-      </div>
-
+    <>
+    
       <div
         style={{
-          height: 12,
-          background: "#eee",
-          borderRadius: 6,
-          overflow: "hidden"
+          border: "1px solid #ddd",
+          padding: 16,
+          marginBottom: 20
         }}
       >
 
+        <h2>Dashboard</h2>
+
+        <div style={{ marginBottom: 10 }}>
+          👥 Alunos: {stats.alunos}
+        </div>
+
+        <div style={{ marginBottom: 10 }}>
+          🥋 Combos: {stats.combos}
+        </div>
+
+        <div style={{ marginBottom: 6 }}>
+          📊 Progresso médio da turma
+        </div>
+
         <div
           style={{
-            width: `${stats.media}%`,
-            height: "100%",
-            background: "#2196f3"
+            height: 12,
+            background: "#eee",
+            borderRadius: 6,
+            overflow: "hidden"
           }}
-        />
+        >
+
+          <div
+            style={{
+              width: `${stats.media}%`,
+              height: "100%",
+              background: "#2196f3",
+              transition: "width 0.6s ease"
+            }}
+          />
+
+        </div>
+
+        <div style={{ marginTop: 6 }}>
+          {stats.media}%
+        </div>
 
       </div>
 
-      <div style={{ marginTop: 6 }}>
-        {stats.media}%
-      </div>
+      <MapaTecnico />
 
-    </div>
+    </>
 
   );
 }
