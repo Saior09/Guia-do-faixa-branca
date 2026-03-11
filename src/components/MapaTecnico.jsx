@@ -50,12 +50,18 @@ export default function MapaTecnico() {
         🧠 Mapa Técnico da Turma
       </h2>
 
-      <div style={{ overflowX: "auto" }}>
+      <div
+        style={{
+            overflowX: "auto",
+            maxWidth: "100%",
+            WebkitOverflowScrolling: "touch"
+        }}
+    >
 
         <table
           style={{
             borderCollapse: "collapse",
-            width: "100%",
+            width: 500,
             background: "white"
           }}
         >
