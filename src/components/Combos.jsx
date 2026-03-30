@@ -22,16 +22,53 @@ export default function Combos() {
   }
 
   async function criarCombo() {
-    if (!novoNome.trim()) return;
+  if (!novoNome.trim()) return;
 
-    await supabase
-      .from("combos")
-      .insert([{ nome: novoNome, descricao: novaDesc }]);
+  // 1. cria o combo e já pega ele
+  const { data: novoCombo, error: erroCombo } = await supabase
+    .from("combos")
+    .insert([{ nome: novoNome, descricao: novaDesc }])
+    .select()
+    .single();
 
-    setNovoNome("");
-    setNovaDesc("");
-    carregarCombos();
+  if (erroCombo) {
+    alert("Erro ao criar combo");
+    return;
   }
+
+  // 2. busca todos os alunos
+  const { data: alunos, error: erroAlunos } = await supabase
+    .from("alunos")
+    .select("id");
+
+  if (erroAlunos) {
+    alert("Erro ao buscar alunos");
+    return;
+  }
+
+  // 3. cria progresso para todos os alunos
+  const progressoInicial = alunos.map(aluno => ({
+    aluno_id: aluno.id,
+    combo_id: novoCombo.id,
+    feito: false
+  }));
+
+  if (progressoInicial.length > 0) {
+    const { error: erroProgresso } = await supabase
+      .from("progresso")
+      .insert(progressoInicial);
+
+    if (erroProgresso) {
+      alert("Erro ao criar progresso");
+      return;
+    }
+  }
+
+  // 4. limpa e recarrega
+  setNovoNome("");
+  setNovaDesc("");
+  carregarCombos();
+}
 
   async function editarCombo(id, dados) {
     await supabase
