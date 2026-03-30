@@ -5,68 +5,56 @@ export default function Combos() {
 
   const [combos, setCombos] = useState([]);
   const [comboSelecionado, setComboSelecionado] = useState(null);
+  const [novoNome, setNovoNome] = useState("");
+  const [novaDesc, setNovaDesc] = useState("");
 
   async function carregarCombos() {
-
     const { data } = await supabase
       .from("combos")
       .select(`
         id,
         nome,
         descricao,
-        progresso (
-          feito
-        )
-      `)
-      .order("id");
+        progresso ( feito )
+      `);
 
-    if (!data) return;
+    setCombos(data || []);
+  }
 
-    const combosComStats = data.map(combo => {
+  async function criarCombo() {
+    if (!novoNome.trim()) return;
 
-      const total = combo.progresso?.length || 0;
+    await supabase
+      .from("combos")
+      .insert([{ nome: novoNome, descricao: novaDesc }]);
 
-      const feitos = combo.progresso
-        ?.filter(p => p.feito)
-        .length || 0;
+    setNovoNome("");
+    setNovaDesc("");
+    carregarCombos();
+  }
 
-      const porcentagem = total === 0
-        ? 0
-        : Math.round((feitos / total) * 100);
+  async function editarCombo(id, dados) {
+    await supabase
+      .from("combos")
+      .update(dados)
+      .eq("id", id);
 
-      return {
-        ...combo,
-        porcentagem
-      };
+    carregarCombos();
+  }
 
-    });
+  async function removerCombo(id) {
+    if (!confirm("Excluir combo?")) return;
 
-    setCombos(combosComStats);
+    await supabase
+      .from("combos")
+      .delete()
+      .eq("id", id);
+
+    carregarCombos();
   }
 
   useEffect(() => {
-
     carregarCombos();
-
-    const channel = supabase
-      .channel("combos-realtime")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "progresso"
-        },
-        () => {
-          carregarCombos();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-
   }, []);
 
   if (comboSelecionado) {
@@ -77,226 +65,90 @@ export default function Combos() {
           setComboSelecionado(null);
           carregarCombos();
         }}
+        editarCombo={editarCombo}
+        removerCombo={removerCombo}
       />
     );
   }
 
-  return (
+   return (
     <div>
 
-      <h2 style={{ marginBottom: 16 }}>
-        🥋 Combos
-      </h2>
+      <h2>Combos</h2>
+
+      <div className="card">
+        <input
+          placeholder="Nome"
+          value={novoNome}
+          onChange={(e) => setNovoNome(e.target.value)}
+        />
+
+        <textarea
+          placeholder="Descrição"
+          value={novaDesc}
+          onChange={(e) => setNovaDesc(e.target.value)}
+        />
+
+        <button onClick={criarCombo}>
+          Criar combo
+        </button>
+      </div>
 
       {combos.map(combo => (
+        <div key={combo.id} className="card">
 
-        <div
-          key={combo.id}
-          onClick={() => setComboSelecionado(combo)}
-          style={{
-            padding: 16,
-            borderRadius: 10,
-            border: "1px solid #ddd",
-            marginBottom: 12,
-            cursor: "pointer",
-            fontSize: 18,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
-            background: "white",
-            color: "#222"
-          }}
-        >
+          <strong>{combo.nome}</strong>
 
-          <div>
-
-            <div style={{ fontWeight: "bold" }}>
-              {combo.nome}
+          {combo.descricao && (
+            <div className="sub">
+              {combo.descricao}
             </div>
+          )}
 
-            <div style={{ fontSize: 13, color: "#666" }}>
-              {combo.porcentagem}% da turma concluiu
-            </div>
-
-          </div>
-
-          <Pizza porcentagem={combo.porcentagem} />
+          <button onClick={() => setComboSelecionado(combo)}>
+            Editar
+          </button>
 
         </div>
-
       ))}
 
     </div>
   );
 }
 
-function Pizza({ porcentagem }) {
-
-  const [valorAnimado, setValorAnimado] = useState(0);
-
-  useEffect(() => {
-
-    setTimeout(() => {
-      setValorAnimado(porcentagem);
-    }, 50);
-
-  }, [porcentagem]);
-
-  const azul = valorAnimado;
-  const rosa = 100 - valorAnimado;
-
-  return (
-    <div
-      style={{
-        width: 42,
-        height: 42,
-        borderRadius: "50%",
-        background: `conic-gradient(
-          #2196f3 0% ${azul}%,
-          #ff5fa2 ${azul}% 100%
-        )`,
-        boxShadow: "0 0 4px rgba(0,0,0,0.15)",
-        transition: "all 0.6s ease"
-      }}
-    />
-  );
-}
-
-function ComboDetalhe({ combo, voltar }) {
-
-  const [alunos, setAlunos] = useState([]);
-
-  async function carregarAlunos() {
-
-    const { data } = await supabase
-      .from("progresso")
-      .select(`
-        id,
-        feito,
-        alunos (
-          nome
-        )
-      `)
-      .eq("combo_id", combo.id);
-
-    setAlunos(data || []);
-  }
-
-  async function toggleProgresso(id, valor) {
-
-    await supabase
-      .from("progresso")
-      .update({ feito: valor })
-      .eq("id", id);
-
-    carregarAlunos();
-  }
-
-  useEffect(() => {
-
-    carregarAlunos();
-
-    const channel = supabase
-      .channel("progresso-realtime")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "progresso"
-        },
-        () => {
-          carregarAlunos();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-
-  }, [combo]);
+function ComboDetalhe({ combo, voltar, editarCombo, removerCombo }) {
 
   return (
     <div>
 
-      <button
-        onClick={voltar}
-        style={{
-          marginBottom: 16,
-          padding: 10,
-          fontSize: 16,
-          borderRadius: 8,
-          border: "1px solid #ccc",
-          background: "white",
-          cursor: "pointer",
-          color: "black"
-        }}
-      >
+      <button onClick={voltar} style={{ marginBottom: 10 }}>
         ⬅ Voltar
       </button>
 
-      <h3 style={{ marginBottom: 10 }}>
-        {combo.nome}
-      </h3>
+      <div className="card">
 
-      {combo.descricao && (
-        <div
-          style={{
-            background: "#f5f5f5",
-            padding: 14,
-            borderRadius: 8,
-            marginBottom: 16,
-            fontSize: 14,
-            lineHeight: 1.6,
-            border: "1px solid #ddd",
-            whiteSpace: "pre-line",
-            color: "black"
-          }}
+        <input
+          defaultValue={combo.nome}
+          onBlur={(e) =>
+            editarCombo(combo.id, { nome: e.target.value })
+          }
+        />
+
+        <textarea
+          defaultValue={combo.descricao}
+          onBlur={(e) =>
+            editarCombo(combo.id, { descricao: e.target.value })
+          }
+        />
+
+        <button
+          className="danger"
+          onClick={() => removerCombo(combo.id)}
         >
-          {combo.descricao}
-        </div>
-      )}
+          🗑️ Excluir
+        </button>
 
-      {alunos.map(item => (
-
-        <div
-          key={item.id}
-          style={{
-            padding: 14,
-            borderBottom: "1px solid #eee",
-            fontSize: 18
-          }}
-        >
-
-          <label
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12
-            }}
-          >
-
-            <input
-              type="checkbox"
-              checked={item.feito}
-              onChange={(e) =>
-                toggleProgresso(item.id, e.target.checked)
-              }
-              style={{
-                transform: "scale(1.6)",
-                cursor: "pointer"
-              }}
-            />
-
-            {item.alunos?.nome}
-
-          </label>
-
-        </div>
-
-      ))}
+      </div>
 
     </div>
   );

@@ -9,36 +9,26 @@ export default function Alunos() {
   const [busca, setBusca] = useState("");
 
   async function carregarAlunos() {
-
     const { data } = await supabase
       .from("alunos")
       .select(`
         id,
         nome,
-        progresso (
-          feito
-        )
+        progresso ( feito )
       `)
       .order("nome");
 
     const alunosComProgresso = (data || []).map(aluno => {
-
       const feitos = aluno.progresso.filter(p => p.feito).length;
       const total = aluno.progresso.length;
 
-      return {
-        ...aluno,
-        feitos,
-        total
-      };
-
+      return { ...aluno, feitos, total };
     });
 
     setAlunos(alunosComProgresso);
   }
 
   async function criarAluno() {
-
     if (!nome.trim()) return;
 
     const { data: novoAluno } = await supabase
@@ -57,11 +47,31 @@ export default function Alunos() {
       feito: false
     }));
 
-    await supabase
-      .from("progresso")
-      .insert(progressoInicial);
+    await supabase.from("progresso").insert(progressoInicial);
 
     setNome("");
+    carregarAlunos();
+  }
+
+  async function editarAluno(id, novoNome) {
+    if (!novoNome.trim()) return;
+
+    await supabase
+      .from("alunos")
+      .update({ nome: novoNome })
+      .eq("id", id);
+
+    carregarAlunos();
+  }
+
+  async function removerAluno(id) {
+    if (!confirm("Excluir aluno?")) return;
+
+    await supabase
+      .from("alunos")
+      .delete()
+      .eq("id", id);
+
     carregarAlunos();
   }
 
@@ -87,110 +97,68 @@ export default function Alunos() {
 
       <h2>Alunos</h2>
 
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          marginBottom: 12
-        }}
-      >
-
+      <div className="card fade-in">
         <input
           placeholder="Nome do aluno"
           value={nome}
           onChange={(e) => setNome(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") criarAluno();
-          }}
-          style={{
-            flex: 1,
-            padding: 10,
-            borderRadius: 6,
-            border: "1px solid #ccc"
-          }}
+          onKeyDown={(e) => e.key === "Enter" && criarAluno()}
         />
 
-        <button
-          onClick={criarAluno}
-          style={{
-            padding: "10px 16px",
-            borderRadius: 6,
-            border: "none",
-            background: "#2196f3",
-            color: "white",
-            cursor: "pointer"
-          }}
-        >
-          Adicionar
+        <button onClick={criarAluno}>
+          Adicionar aluno
         </button>
-
       </div>
 
       <input
         placeholder="Buscar aluno..."
         value={busca}
         onChange={(e) => setBusca(e.target.value)}
-        style={{
-          width: "60%",
-          padding: 8,
-          marginBottom: 16,
-          borderRadius: 6,
-          border: "1px solid #ccc"
-        }}
       />
 
       {alunosFiltrados.map(aluno => {
-
         const porcentagem = aluno.total === 0
           ? 0
           : Math.round((aluno.feitos / aluno.total) * 100);
 
         return (
+          <div key={aluno.id} className="card fade-in">
 
-          <div
-            key={aluno.id}
-            onClick={() => setAlunoSelecionado(aluno)}
-            style={{
-              border: "1px solid #ddd",
-              padding: 12,
-              marginBottom: 12,
-              borderRadius: 8,
-              cursor: "pointer"
-            }}
-          >
+            <div className="row">
+              <input
+                defaultValue={aluno.nome}
+                onBlur={(e) => editarAluno(aluno.id, e.target.value)}
+              />
 
-            <strong>{aluno.nome}</strong>
+              <button
+                className="danger"
+                onClick={() => removerAluno(aluno.id)}
+              >
+                🗑️
+              </button>
+            </div>
 
-            <div style={{ marginTop: 6 }}>
+            <div className="sub">
               {aluno.feitos} / {aluno.total}
             </div>
 
-            <div
-              style={{
-                height: 10,
-                background: "#eee",
-                borderRadius: 6,
-                marginTop: 6,
-                overflow: "hidden"
-              }}
-            >
-
+            <div className="progress">
               <div
+                className="progress-fill"
                 style={{
                   width: `${porcentagem}%`,
-                  height: "100%",
-                  background: "#2196f3"
+                  transition: "width 0.4s ease"
                 }}
               />
-
             </div>
 
+            <button onClick={() => setAlunoSelecionado(aluno)}>
+              Ver detalhes
+            </button>
+
           </div>
-
         );
-
       })}
-
     </div>
   );
 }
@@ -200,73 +168,60 @@ function AlunoDetalhe({ aluno, voltar }) {
   const [combos, setCombos] = useState([]);
 
   async function carregarCombos() {
-
     const { data } = await supabase
       .from("progresso")
       .select(`
         feito,
-        combos (
-          nome
-        )
+        combo_id,
+        combos ( id, nome )
       `)
       .eq("aluno_id", aluno.id);
 
     setCombos(data || []);
   }
 
+  async function toggleProgresso(item) {
+    await supabase
+      .from("progresso")
+      .update({ feito: !item.feito })
+      .eq("aluno_id", aluno.id)
+      .eq("combo_id", item.combo_id);
+
+    carregarCombos();
+  }
+
   useEffect(() => {
     carregarCombos();
   }, []);
 
-  const feitos = combos.filter(c => c.feito).length;
-  const faltam = combos.length - feitos;
-
   return (
     <div>
 
-      <button
-        onClick={voltar}
-        style={{
-          marginBottom: 16,
-          padding: 10,
-          borderRadius: 8,
-          border: "1px solid #ccc",
-          background: "white",
-          cursor: "pointer",
-          color: "black"
-        }}
-      >
+      <button onClick={voltar} style={{ marginBottom: 10 }}>
         ⬅ Voltar
       </button>
 
       <h3>{aluno.nome}</h3>
 
-      <div style={{ marginBottom: 16 }}>
-        ✔ {feitos} feitos  
-        <br />
-        ⏳ {faltam} faltando
-      </div>
+      {combos.map((c, i) => (
+        <div key={i} className="card fade-in">
 
-      {combos.map((c, index) => (
+          <div className="row">
+            <strong>{c.combos?.nome}</strong>
 
-        <div
-          key={index}
-          style={{
-            padding: 12,
-            borderBottom: "1px solid #eee",
-            display: "flex",
-            justifyContent: "space-between"
-          }}
-        >
+            <button
+              className={c.feito ? "success" : ""}
+              onClick={() => toggleProgresso(c)}
+            >
+              {c.feito ? "✔ Desfazer" : "Concluir"}
+            </button>
+          </div>
 
-          {c.combos?.nome}
-
-          <span>
-            {c.feito ? "✔" : "⏳"}
-          </span>
+          <div className="sub">
+            {c.feito ? "✔ Concluído" : "⏳ Pendente"}
+          </div>
 
         </div>
-
       ))}
 
     </div>
